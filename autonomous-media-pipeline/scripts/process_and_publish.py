@@ -28,9 +28,16 @@ def main():
         raw_sources = os.environ.get("SOURCE_CHANNELS", "").strip()
         urls = [x.strip() for x in raw_sources.splitlines() if x.strip()]
         if not urls:
+            source_file = ROOT / "config" / "authorized_sources.txt"
+            if source_file.is_file():
+                urls = [
+                    line.strip() for line in source_file.read_text(encoding="utf-8").splitlines()
+                    if line.strip() and not line.lstrip().startswith("#")
+                ]
+        if not urls:
             raise RuntimeError(
-                "SOURCE_CHANNELS is required. Configure only channels/videos you own "
-                "or are authorized to republish."
+                "No authorized sources configured. Add owner-controlled or explicitly "
+                "licensed URLs to SOURCE_CHANNELS or autonomous-media-pipeline/config/authorized_sources.txt."
             )
 
         opts = {
@@ -82,16 +89,40 @@ def main():
             raise RuntimeError("FFmpeg completed without a usable output file.")
         print(f"[3/5] Processing succeeded: {output.name} ({output.stat().st_size} bytes)")
 
-        token = os.environ.get("YOUTUBE_TOKEN_JSON", "").strip()
-        if not token:
-            raise RuntimeError("YOUTUBE_TOKEN_JSON is not configured; refusing to report success without a real upload.")
-        creds = Credentials.from_authorized_user_info(json.loads(token), SCOPES)
+        token_json = os.environ.get("YOUTUBE_TOKEN_JSON", "").strip()
+        refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
+        if token_json:
+            creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+        elif refresh_token:
+            client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
+            client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
+            if not client_id or not client_secret:
+                raise RuntimeError(
+                    "YOUTUBE_REFRESH_TOKEN requires YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET "
+                    "from the same Google OAuth client. No upload performed."
+                )
+            creds = Credentials(
+                token=None,
+                refresh_token=refresh_token,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_id,
+                client_secret=client_secret,
+                scopes=SCOPES,
+            )
+        else:
+            raise RuntimeError(
+                "Configure YOUTUBE_TOKEN_JSON or YOUTUBE_REFRESH_TOKEN plus OAuth client credentials. "
+                "A refresh token must first be issued through Google's user-consent OAuth flow."
+            )
+
         if not creds.valid:
-            if creds.expired and creds.refresh_token:
+            if creds.refresh_token:
                 from google.auth.transport.requests import Request
                 creds.refresh(Request())
             else:
-                raise RuntimeError("YouTube OAuth token is invalid or lacks a refresh token. Re-authorize the intended channel.")
+                raise RuntimeError(
+                    "OAuth credentials are expired and have no refresh token. Re-authorize the intended channel."
+                )
 
         yt = build("youtube", "v3", credentials=creds, cache_discovery=False)
         channel_response = yt.channels().list(part="id,snippet", mine=True).execute()
@@ -132,7 +163,7 @@ def main():
             },
             "status": {
                 "privacyStatus": "public",
-                "selfDeclaredMadeForKids": True,
+                "selfDeclaredMadeForKids": os.environ.get("YOUTUBE_MADE_FOR_KIDS", "false").strip().lower() == "true",
             },
         }
         req = yt.videos().insert(
