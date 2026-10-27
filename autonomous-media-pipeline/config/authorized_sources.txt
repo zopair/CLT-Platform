@@ -1,0 +1,4 @@
+# Authorized source URLs, one per line.
+# Add only videos/channels you own or have explicit permission to republish.
+# Publicly viewable or viral does not by itself mean public-domain or licensed.
+# SOURCE_CHANNELS in GitHub Actions Secrets takes precedence over this file.
