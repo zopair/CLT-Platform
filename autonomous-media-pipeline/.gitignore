@@ -1,0 +1,10 @@
+.env
+*.mp4
+*.part
+*.ytdl
+.cache/
+__pycache__/
+*.py[cod]
+client_secret*.json
+token.json
+credentials.json
