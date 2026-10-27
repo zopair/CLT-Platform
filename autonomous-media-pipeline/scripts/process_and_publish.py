@@ -73,6 +73,12 @@ def main():
             raise RuntimeError("FFmpeg completed without a usable output file.")
         print(f"[3/5] Processing succeeded: {output.name} ({output.stat().st_size} bytes)")
 
+        simulate_publish = os.environ.get("SIMULATE_PUBLISH", "").strip().lower() in {"1", "true", "yes"}
+        if simulate_publish:
+            print("[4/5] SIMULATION ONLY: processed media is valid; skipping YouTube authentication and public upload.")
+            print(f"[4/5] Simulated publish passed for {output.name} ({output.stat().st_size} bytes). No video was uploaded.")
+            return
+
         token = os.environ.get("YOUTUBE_TOKEN_JSON", "").strip()
         if not token:
             print("YOUTUBE_TOKEN_JSON is not configured; skipping upload. Download and FFmpeg processing succeeded.")
