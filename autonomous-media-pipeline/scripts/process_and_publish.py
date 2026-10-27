@@ -22,6 +22,7 @@ CACHE.mkdir(parents=True, exist_ok=True)
 
 def main():
     try:
+        print("[1/5] Discovering source channels...")
         raw_sources = os.environ.get("SOURCE_CHANNELS", "").strip()
         urls = [x.strip() for x in raw_sources.splitlines() if x.strip()] if raw_sources else DEFAULT_SOURCE_CHANNELS
         opts = {
@@ -43,6 +44,8 @@ def main():
         if not info or not info.get("webpage_url"):
             raise RuntimeError("No usable video found in SOURCE_CHANNELS. Check the configured source channels.")
 
+        print(f"[1/5] Source selected: {info['webpage_url']}")
+        print("[2/5] Downloading source...")
         download_opts = {
             "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
             "merge_output_format": "mp4",
@@ -55,6 +58,8 @@ def main():
         if not sources:
             raise RuntimeError("Download did not produce MP4.")
 
+        print(f"[2/5] Download complete: {sources[0].name}")
+        print("[3/5] Encoding vertical video with standard FFmpeg settings...")
         output = TEMP / "processed.mp4"
         vf = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
         subprocess.run(
@@ -66,7 +71,7 @@ def main():
         )
         if not output.is_file() or output.stat().st_size == 0:
             raise RuntimeError("FFmpeg completed without a usable output file.")
-        print(f"Processing succeeded: {output.name} ({output.stat().st_size} bytes)")
+        print(f"[3/5] Processing succeeded: {output.name} ({output.stat().st_size} bytes)")
 
         token = os.environ.get("YOUTUBE_TOKEN_JSON", "").strip()
         if not token:
