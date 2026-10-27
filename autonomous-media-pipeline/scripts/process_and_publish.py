@@ -84,8 +84,9 @@ def main():
         title = (info.get("title") or "Animated short")[:100]
         author = info.get("uploader") or info.get("channel") or "Original creator"
         description = (
-            f"Source: {info['webpage_url']}\nCreator: {author}\n"
-            "Original source supplied by the configured source channel."
+            f"{source_title}\n\n"
+            f"Original source: {info['webpage_url']}\nCreator: {author}\n"
+            "Edited into a vertical short. Source attribution is provided for transparency."
         )
         body = {
             "snippet": {
@@ -101,11 +102,21 @@ def main():
             part="snippet,status", body=body,
             media_body=MediaFileUpload(str(output), mimetype="video/mp4", resumable=True),
         )
+        print("[4/5] Uploading video to YouTube...")
         response = None
         while response is None:
             _, response = req.next_chunk()
-        print("Uploaded public video; ID:", response.get("id"))
+        video_id = response.get("id")
+        if not video_id:
+            raise RuntimeError("YouTube upload response did not contain a video ID.")
+        verification = yt.videos().list(part="id,status", id=video_id).execute()
+        items = verification.get("items", [])
+        if not items or items[0].get("id") != video_id:
+            raise RuntimeError(f"Upload returned video ID {video_id}, but the follow-up verification could not find it.")
+        privacy = items[0].get("status", {}).get("privacyStatus", "unknown")
+        print(f"[4/5] Upload verified by YouTube API. Video ID: {video_id}; privacyStatus: {privacy}")
     finally:
+        print("[5/5] Cleaning temporary downloads, encoded media, and cache...")
         shutil.rmtree(TEMP, ignore_errors=True)
         for p in ROOT.rglob("*"):
             if p.is_file() and p.suffix.lower() in {".mp4", ".part", ".ytdl"}:
@@ -113,6 +124,7 @@ def main():
                     p.unlink()
                 except OSError:
                     pass
+        print("[5/5] Cleanup finished.")
 
 
 if __name__ == "__main__":
