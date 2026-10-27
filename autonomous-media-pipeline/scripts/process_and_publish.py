@@ -22,10 +22,56 @@ CACHE = TEMP / "cache"
 CACHE.mkdir(parents=True, exist_ok=True)
 
 
+def make_procedural_fallback(topic: str, duration: int) -> Path:
+    """Render a standalone vertical text-motion Short using FFmpeg only."""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("FFmpeg is unavailable; cannot render procedural fallback.")
+    duration = max(10, min(int(duration), 60))
+    output = TEMP / "procedural-fallback.mp4"
+    font = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    if not Path(font).is_file():
+        font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    cards = [
+        ("fallback-hook.txt", "فكرة تستحق التفكير"),
+        ("fallback-topic.txt", topic or "معلومة جديدة كل يوم"),
+        ("fallback-cta.txt", "تابع للمزيد"),
+    ]
+    text_paths = []
+    for filename, value in cards:
+        path = TEMP / filename
+        path.write_text(value.replace("\\x00", "")[:180], encoding="utf-8")
+        text_paths.append(path)
+    third = duration / 3
+    filters = [
+        "drawgrid=width=100:height=100:thickness=1:color=white@0.08",
+        f"drawtext=fontfile={font}:textfile={text_paths[0]}:expansion=none:fontcolor=white:fontsize=66:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=0x142033@0.85:boxborderw=38:text_shaping=1:enable='between(t\\,0\\,{third:.2f})'",
+        f"drawtext=fontfile={font}:textfile={text_paths[1]}:expansion=none:fontcolor=0x7dd3fc:fontsize=58:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=0x142033@0.88:boxborderw=38:text_shaping=1:enable='between(t\\,{third:.2f}\\,{2*third:.2f})'",
+        f"drawtext=fontfile={font}:textfile={text_paths[2]}:expansion=none:fontcolor=white:fontsize=68:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=0x142033@0.85:boxborderw=38:text_shaping=1:enable='gte(t\\,{2*third:.2f})'",
+        f"drawbox=x=0:y=ih-22:w=iw*t/{duration}:h=22:color=0x38bdf8:t=fill",
+    ]
+    filter_graph = ",".join(filters)
+    command = [
+        ffmpeg, "-hide_banner", "-y",
+        "-f", "lavfi", "-i", f"color=c=0x0b1220:s=1080x1920:r=30:d={duration}",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-vf", filter_graph, "-t", str(duration),
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30",
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+        "-shortest", "-movflags", "+faststart", str(output),
+    ]
+    subprocess.run(command, check=True, timeout=300, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if not output.is_file() or output.stat().st_size == 0:
+        raise RuntimeError("Procedural FFmpeg fallback did not produce a valid MP4.")
+    print(f"[fallback] Procedural FFmpeg video rendered: {output.stat().st_size} bytes")
+    return output
+
+
 def main():
     try:
         print("[1/5] Generating a new Short with PurffleShorts (MIT)...")
         topic = os.environ.get("SHORTS_TOPIC", "").strip()
+        duration = int(os.environ.get("SHORTS_DURATION", "45"))
         generator_env = os.environ.copy()
         generator_env["OUTPUT_DIR"] = str(TEMP / "generated")
         generator_env["DATA_DIR"] = str(TEMP / "generator-data")
@@ -35,7 +81,7 @@ def main():
             "purffle-shorts", "make",
             "--source", "niche",
             "--lang", os.environ.get("SHORTS_LANGUAGE", "ar"),
-            "--duration", os.environ.get("SHORTS_DURATION", "45"),
+            "--duration", str(duration),
             "--aspect", "9:16",
             "--no-upload",
         ]
@@ -44,33 +90,41 @@ def main():
         try:
             subprocess.run(command, check=True, env=generator_env, timeout=1500)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
-            # Resilience path: Purffle's bundled demo renders offline without provider keys.
-            # This preserves pipeline continuity when all LLM/media providers are unavailable.
             print(f"[fallback] Primary generation unavailable ({type(exc).__name__}); trying built-in offline demo.")
-            fallback_command = ["purffle-shorts", "demo", "--style", "story"]
-            subprocess.run(fallback_command, check=True, env=generator_env, timeout=1500)
+            try:
+                subprocess.run(
+                    ["purffle-shorts", "demo", "--style", "story"],
+                    check=True, env=generator_env, timeout=1500,
+                )
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as demo_exc:
+                print(f"[fallback] Offline demo failed ({type(demo_exc).__name__}); using procedural FFmpeg renderer.")
         generated = [
             path for path in TEMP.rglob("*.mp4")
-            if path.is_file() and path.stat().st_size > 0 and path.name != "processed.mp4"
+            if path.is_file() and path.stat().st_size > 0
+            and path.name not in {"processed.mp4", "procedural-fallback.mp4"}
         ]
-        if not generated:
-            raise RuntimeError(
-                "PurffleShorts completed without an MP4. Check generator logs and configured LLM/visual providers."
-            )
-        generated.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-        source_video = generated[0]
-        output = TEMP / "processed.mp4"
-        info = {"title": topic or "Short generated by PurffleShorts", "webpage_url": "AI-generated original video",
-                "uploader": "PurffleShorts"}
-        metadata_candidates = list(source_video.parent.glob("metadata.json"))
-        if metadata_candidates:
-            try:
-                metadata = json.loads(metadata_candidates[0].read_text(encoding="utf-8"))
-                info["title"] = metadata.get("title") or info["title"]
-                info["description"] = metadata.get("description") or ""
-            except (OSError, ValueError):
-                pass
-        print(f"[1/5] Generated video: {source_video.name}")
+        info = {
+            "title": topic or "Short generated by PurffleShorts",
+            "webpage_url": "AI-generated original video",
+            "uploader": "PurffleShorts",
+            "description": "Original generated short-form video.",
+        }
+        if generated:
+            generated.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+            source_video = generated[0]
+            metadata_candidates = list(source_video.parent.glob("metadata.json"))
+            if metadata_candidates:
+                try:
+                    metadata = json.loads(metadata_candidates[0].read_text(encoding="utf-8"))
+                    info["title"] = metadata.get("title") or info["title"]
+                    info["description"] = metadata.get("description") or info["description"]
+                except (OSError, ValueError):
+                    pass
+            print(f"[1/5] Generated video: {source_video.name}")
+        else:
+            source_video = make_procedural_fallback(topic, duration)
+            info["title"] = (topic or "فكرة تستحق التفكير")[:100]
+            info["description"] = "Procedurally generated text-motion Short rendered locally with FFmpeg."
         print("[2/5] Generator output validated.")
 
         print("[3/5] Encoding vertical video with standard FFmpeg settings...")
