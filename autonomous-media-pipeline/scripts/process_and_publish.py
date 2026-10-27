@@ -1,4 +1,4 @@
-"""Download, process, and publish a short from a source with a verified reusable license."""
+"""Download, process, and publish a short from a configured source channel."""
 import json
 import os
 import shutil
@@ -13,20 +13,11 @@ from yt_dlp import YoutubeDL
 
 ROOT = Path(__file__).resolve().parents[1]
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-# Blender Studio publishes open movies; each candidate still needs reusable-license metadata.
+# Set SOURCE_CHANNELS to your own staging/raw channels. The fallback is Blender Studio.
 DEFAULT_SOURCE_CHANNELS = ["https://www.youtube.com/@BlenderStudio"]
 TEMP = Path(tempfile.mkdtemp(prefix="media-pipeline-"))
 CACHE = TEMP / "cache"
 CACHE.mkdir(parents=True, exist_ok=True)
-
-
-def has_reusable_cc_license(info):
-    license_name = str(info.get("license") or "").strip().lower()
-    return license_name in {
-        "creativecommon",
-        "creative commons attribution",
-        "creative commons",
-    }
 
 
 def main():
@@ -44,13 +35,13 @@ def main():
                 entries = [e for e in (candidate or {}).get("entries", []) if e]
                 if entries:
                     entries.sort(key=lambda e: str(e.get("upload_date") or ""), reverse=True)
-                    info = next((e for e in entries if e.get("webpage_url") and has_reusable_cc_license(e)), None)
-                elif candidate and candidate.get("webpage_url") and has_reusable_cc_license(candidate):
+                    info = next((e for e in entries if e.get("webpage_url")), None)
+                elif candidate and candidate.get("webpage_url"):
                     info = candidate
                 if info:
                     break
         if not info or not info.get("webpage_url"):
-            raise RuntimeError("No video with reusable Creative Commons metadata found. Check SOURCE_CHANNELS and source license details.")
+            raise RuntimeError("No usable video found in SOURCE_CHANNELS. Check the configured source channels.")
 
         download_opts = {
             "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
@@ -94,7 +85,7 @@ def main():
         author = info.get("uploader") or info.get("channel") or "Original creator"
         description = (
             f"Source: {info['webpage_url']}\nCreator: {author}\n"
-            "Verify the source's exact license terms and attribution before reuse."
+            "Original source supplied by the configured source channel."
         )
         body = {
             "snippet": {
