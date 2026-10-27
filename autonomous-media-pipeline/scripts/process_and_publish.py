@@ -29,6 +29,7 @@ def main():
         generator_env = os.environ.copy()
         generator_env["OUTPUT_DIR"] = str(TEMP / "generated")
         generator_env["DATA_DIR"] = str(TEMP / "generator-data")
+        generator_env["PURFFLE_HOME"] = str(TEMP / "purffle-home")
         generator_env["CHANNEL_NAME"] = "Alyzopair"
         command = [
             "purffle-shorts", "make",
@@ -49,8 +50,8 @@ def main():
             fallback_command = ["purffle-shorts", "demo", "--style", "story"]
             subprocess.run(fallback_command, check=True, env=generator_env, timeout=1500)
         generated = [
-            path for path in (TEMP / "generated").rglob("*.mp4")
-            if path.is_file() and path.stat().st_size > 0
+            path for path in TEMP.rglob("*.mp4")
+            if path.is_file() and path.stat().st_size > 0 and path.name != "processed.mp4"
         ]
         if not generated:
             raise RuntimeError(
