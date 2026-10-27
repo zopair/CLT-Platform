@@ -23,7 +23,11 @@ jobs:
     env:
       SOURCE_CHANNELS: ${{ secrets.SOURCE_CHANNELS }}
       YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_TARGET_HANDLE: "@Alyzopair"
+      YOUTUBE_MADE_FOR_KIDS: "false"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,9 +49,31 @@ jobs:
       - name: Validate configuration without exposing secrets
         run: |
           set -euo pipefail
-          test -n "$SOURCE_CHANNELS" || { echo "::error::SOURCE_CHANNELS secret is missing"; exit 1; }
-          test -n "$YOUTUBE_TOKEN_JSON" || { echo "::error::YOUTUBE_TOKEN_JSON secret is missing"; exit 1; }
-          echo "[config] Source channels and OAuth token are configured; secret values are not printed."
+          if [ -z "$SOURCE_CHANNELS" ] && ! grep -Eqv '^[[:space:]]*(#.*)?
+      - name: Download, process, and publish
+        run: |
+          set -euo pipefail
+          python autonomous-media-pipeline/scripts/process_and_publish.py
+      - name: Clean temporary media and caches
+        if: always()
+        run: |
+          echo "[cleanup] Removing generated temporary media and Python caches"
+          rm -rf "$HOME/.cache" autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
+          find autonomous-media-pipeline -type f \( -name '*.part' -o -name '*.ytdl' -o -name '*.pyc' \) -delete
+          echo "[cleanup] Cleanup step completed"
+ autonomous-media-pipeline/config/authorized_sources.txt; then
+            echo "::error::No authorized sources configured. Set SOURCE_CHANNELS or populate config/authorized_sources.txt."
+            exit 1
+          fi
+          if [ -n "$YOUTUBE_TOKEN_JSON" ]; then
+            echo "[config] Legacy OAuth token JSON is configured."
+          elif [ -n "$YOUTUBE_REFRESH_TOKEN" ] && [ -n "$YOUTUBE_CLIENT_ID" ] && [ -n "$YOUTUBE_CLIENT_SECRET" ]; then
+            echo "[config] Refresh-token OAuth configuration is present."
+          else
+            echo "::error::Configure YOUTUBE_TOKEN_JSON or all of YOUTUBE_REFRESH_TOKEN, YOUTUBE_CLIENT_ID, and YOUTUBE_CLIENT_SECRET."
+            exit 1
+          fi
+          echo "[config] Configuration validated without printing secret values."
       - name: Download, process, and publish
         run: |
           set -euo pipefail
