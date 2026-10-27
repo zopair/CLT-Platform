@@ -4,14 +4,9 @@ on:
   push:
     branches: [ main ]
   schedule:
+    # Five runs per UTC day: 00:00, 08:00, 12:00, 16:00, and 20:00.
     - cron: '0 8,12,16,20,0 * * *'
   workflow_dispatch:
-    inputs:
-      simulate_publish:
-        description: "Run download and FFmpeg, but do not authenticate or upload publicly"
-        type: boolean
-        required: true
-        default: true
 
 permissions:
   contents: read
@@ -26,10 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      SOURCE_CHANNELS: ${{ secrets.SOURCE_CHANNELS }}
-      YOUTUBE_CLIENT_SECRETS_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRETS_JSON }}
-      YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
-      SIMULATE_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_publish || false }}
+      SOURCE_CHANNELS: \${{ secrets.SOURCE_CHANNELS }}
+      YOUTUBE_TOKEN_JSON: \${{ secrets.YOUTUBE_TOKEN_JSON }}
+      YOUTUBE_TARGET_HANDLE: "@Alyzopair"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,9 +44,10 @@ jobs:
           pip install -r autonomous-media-pipeline/requirements.txt
       - name: Validate configuration without exposing secrets
         run: |
-          echo "[config] SOURCE_CHANNELS configured: $([[ -n "$SOURCE_CHANNELS" ]] && echo yes || echo no)"
-          echo "[config] YOUTUBE_TOKEN_JSON configured: $([[ -n "$YOUTUBE_TOKEN_JSON" ]] && echo yes || echo no)"
-          echo "[config] Secret values are never printed."
+          set -euo pipefail
+          test -n "$SOURCE_CHANNELS" || { echo "::error::SOURCE_CHANNELS secret is missing"; exit 1; }
+          test -n "$YOUTUBE_TOKEN_JSON" || { echo "::error::YOUTUBE_TOKEN_JSON secret is missing"; exit 1; }
+          echo "[config] Source channels and OAuth token are configured; secret values are not printed."
       - name: Download, process, and publish
         run: |
           set -euo pipefail
@@ -60,8 +55,7 @@ jobs:
       - name: Clean temporary media and caches
         if: always()
         run: |
-          echo "[cleanup] Removing generated media and caches"
-          rm -rf ./*.mp4 ./*.part "$HOME/.cache"
-          find . -type f \( -name '*.mp4' -o -name '*.part' -o -name '*.ytdl' \) -delete
-          rm -rf autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
+          echo "[cleanup] Removing generated temporary media and Python caches"
+          rm -rf "$HOME/.cache" autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
+          find autonomous-media-pipeline -type f \( -name '*.part' -o -name '*.ytdl' -o -name '*.pyc' \) -delete
           echo "[cleanup] Cleanup step completed"
