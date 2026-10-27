@@ -30,9 +30,22 @@ jobs:
       SHORTS_LANGUAGE: ${{ vars.SHORTS_LANGUAGE || 'ar' }}
       SHORTS_DURATION: ${{ vars.SHORTS_DURATION || '45' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+      LLM_MODEL: ${{ vars.LLM_MODEL }}
+      LLM_PROVIDER: "auto"
+      LLM_FALLBACKS: "anthropic,gemini,groq,openrouter,deepseek,mistral,together,xai"
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
       CHANNEL_NAME: "Alyzopair"
     steps:
       - name: Checkout repository
@@ -63,8 +76,8 @@ jobs:
             echo "::error::Configure YOUTUBE_TOKEN_JSON or all of YOUTUBE_REFRESH_TOKEN, YOUTUBE_CLIENT_ID, and YOUTUBE_CLIENT_SECRET."
             exit 1
           fi
-          if [ -z "$OPENAI_API_KEY" ] && [ -z "$GEMINI_API_KEY" ]; then
-            echo "::warning::No hosted LLM key detected; PurffleShorts may use a configured local provider or fail if none is available."
+          if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_KEY" ] && [ -z "$GROQ_API_KEY" ] && [ -z "$OPENROUTER_API_KEY" ] && [ -z "$DEEPSEEK_API_KEY" ] && [ -z "$MISTRAL_API_KEY" ] && [ -z "$TOGETHER_API_KEY" ] && [ -z "$XAI_API_KEY" ] && [ -z "$LLM_API_KEY" ]; then
+            echo "::warning::No hosted LLM credentials configured. The generator will attempt its bundled offline demo fallback."
           fi
           echo "[config] Configuration validated without printing secret values."
       - name: Generate, process, and publish
