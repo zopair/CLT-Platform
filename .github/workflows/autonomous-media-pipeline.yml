@@ -96,6 +96,6 @@ jobs:
         if: always()
         run: |
           echo "[cleanup] Removing generated temporary media and Python caches"
-          rm -rf "$HOME/.cache" autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
+          rm -rf autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
           find autonomous-media-pipeline -type f \( -name '*.part' -o -name '*.ytdl' -o -name '*.pyc' \) -delete
           echo "[cleanup] Cleanup step completed"
