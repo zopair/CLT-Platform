@@ -2,7 +2,7 @@ name: Autonomous Media Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix/media-pipeline-safe-mode ]
   schedule:
     # Five runs per UTC day: 00:00, 08:00, 12:00, 16:00, and 20:00.
     - cron: '0 8,12,16,20,0 * * *'
