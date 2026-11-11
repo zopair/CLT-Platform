@@ -2,11 +2,17 @@ name: Autonomous Media Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix/media-pipeline-safe-mode ]
   schedule:
     # Five runs per UTC day: 00:00, 08:00, 12:00, 16:00, and 20:00.
     - cron: '0 8,12,16,20,0 * * *'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to the verified YouTube channel (requires OAuth credentials)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,23 +35,7 @@ jobs:
       SHORTS_TOPIC: ${{ vars.SHORTS_TOPIC }}
       SHORTS_LANGUAGE: ${{ vars.SHORTS_LANGUAGE || 'ar' }}
       SHORTS_DURATION: ${{ vars.SHORTS_DURATION || '45' }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-      LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
-      LLM_MODEL: ${{ vars.LLM_MODEL }}
-      LLM_PROVIDER: "auto"
-      LLM_FALLBACKS: "anthropic,gemini,groq,openrouter,deepseek,mistral,together,xai"
-      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-      POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
+      PIPELINE_OUTPUT_DIR: ${{ github.workspace }}/autonomous-media-pipeline/artifacts
       CHANNEL_NAME: "Alyzopair"
     steps:
       - name: Checkout repository
@@ -66,29 +56,46 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r autonomous-media-pipeline/requirements.txt
-      - name: Validate configuration without exposing secrets
+      - name: Verify media pipeline CLI imports
+        run: python autonomous-media-pipeline/scripts/process_and_publish.py --help
+      - name: Render in zero-credential dry-run mode
+        if: ${{ !inputs.publish }}
+        run: |
+          set -euo pipefail
+          python autonomous-media-pipeline/scripts/process_and_publish.py --dry-run
+
+      - name: Validate YouTube OAuth before explicit publishing
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           if [ -n "$YOUTUBE_TOKEN_JSON" ]; then
-            echo "[config] Legacy OAuth token JSON is configured."
+            echo "[config] OAuth token JSON is configured."
           elif [ -n "$YOUTUBE_REFRESH_TOKEN" ] && [ -n "$YOUTUBE_CLIENT_ID" ] && [ -n "$YOUTUBE_CLIENT_SECRET" ]; then
-            echo "[config] Refresh-token OAuth configuration is present."
+            echo "[config] Refresh-token OAuth credentials are configured."
           else
-            echo "::error::Configure YOUTUBE_TOKEN_JSON or all of YOUTUBE_REFRESH_TOKEN, YOUTUBE_CLIENT_ID, and YOUTUBE_CLIENT_SECRET."
+            echo "::error::Publishing was requested, but complete YouTube OAuth credentials are missing."
             exit 1
           fi
-          if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$GEMINI_API_KEY" ] && [ -z "$GROQ_API_KEY" ] && [ -z "$OPENROUTER_API_KEY" ] && [ -z "$DEEPSEEK_API_KEY" ] && [ -z "$MISTRAL_API_KEY" ] && [ -z "$TOGETHER_API_KEY" ] && [ -z "$XAI_API_KEY" ] && [ -z "$LLM_API_KEY" ]; then
-            echo "::warning::No hosted LLM credentials configured. The generator will attempt its bundled offline demo fallback."
-          fi
-          echo "[config] Configuration validated without printing secret values."
-      - name: Generate, process, and publish
+
+      - name: Publish only after explicit manual approval
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           python autonomous-media-pipeline/scripts/process_and_publish.py
+
+      - name: Upload locally rendered video for review
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: clt-platform-dry-run-video
+          path: autonomous-media-pipeline/artifacts/processed.mp4
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Clean temporary media and caches
         if: always()
         run: |
           echo "[cleanup] Removing generated temporary media and Python caches"
-          rm -rf "$HOME/.cache" autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
+          rm -rf autonomous-media-pipeline/.cache autonomous-media-pipeline/__pycache__
           find autonomous-media-pipeline -type f \( -name '*.part' -o -name '*.ytdl' -o -name '*.pyc' \) -delete
           echo "[cleanup] Cleanup step completed"

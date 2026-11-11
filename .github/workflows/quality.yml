@@ -1,0 +1,28 @@
+name: CLT Platform Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clt-platform-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile media pipeline
+        run: python -m compileall -q autonomous-media-pipeline
+      - name: Run safe-publish regression tests
+        working-directory: autonomous-media-pipeline
+        run: python -m unittest discover -s tests -v
