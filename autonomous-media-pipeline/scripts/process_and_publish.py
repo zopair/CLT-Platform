@@ -1,4 +1,5 @@
 """Download, process, and publish an authorized short to the configured YouTube channel."""
+import argparse
 import json
 import os
 import shutil
@@ -10,6 +11,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from yt_dlp import YoutubeDL
+
+from pipeline_config import has_youtube_credentials, resolve_privacy_status
 
 ROOT = Path(__file__).resolve().parents[1]
 SCOPES = [
@@ -67,7 +70,7 @@ def make_procedural_fallback(topic: str, duration: int) -> Path:
     return output
 
 
-def main():
+def main(dry_run: bool = False):
     try:
         print("[1/5] Generating a new Short with PurffleShorts (MIT)...")
         topic = os.environ.get("SHORTS_TOPIC", "").strip()
@@ -143,6 +146,17 @@ def main():
             raise RuntimeError("FFmpeg completed without a usable output file.")
         print(f"[3/5] Processing succeeded: {output.name} ({output.stat().st_size} bytes)")
 
+        if dry_run:
+            output_dir = Path(os.environ.get("PIPELINE_OUTPUT_DIR", str(ROOT / "artifacts"))).expanduser().resolve()
+            output_dir.mkdir(parents=True, exist_ok=True)
+            artifact = output_dir / "processed.mp4"
+            shutil.copy2(output, artifact)
+            print(f"[dry-run] Video saved for review: {artifact} ({artifact.stat().st_size} bytes). No upload attempted.")
+            return
+
+        if not has_youtube_credentials(os.environ):
+            raise RuntimeError("No complete YouTube OAuth credential set is available. Use --dry-run to render without publishing.")
+        privacy_status = resolve_privacy_status(os.environ)
         token_json = os.environ.get("YOUTUBE_TOKEN_JSON", "").strip()
         refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
         if token_json:
@@ -212,7 +226,7 @@ def main():
                 "tags": ["Shorts", "Animation"],
             },
             "status": {
-                "privacyStatus": "public",
+                "privacyStatus": privacy_status,
                 "selfDeclaredMadeForKids": os.environ.get("YOUTUBE_MADE_FOR_KIDS", "false").strip().lower() == "true",
             },
         }
@@ -220,7 +234,7 @@ def main():
             part="snippet,status", body=body,
             media_body=MediaFileUpload(str(output), mimetype="video/mp4", resumable=True),
         )
-        print("[4/5] Uploading video publicly to verified YouTube channel...")
+        print(f"[4/5] Uploading video with privacyStatus={privacy_status} to verified YouTube channel...")
         response = None
         while response is None:
             _, response = req.next_chunk()
@@ -244,4 +258,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run", action="store_true", help="Render and save a review artifact without contacting YouTube.")
+    arguments = parser.parse_args()
+    main(dry_run=arguments.dry_run)
