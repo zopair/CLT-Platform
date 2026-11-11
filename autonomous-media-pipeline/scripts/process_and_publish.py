@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -12,9 +13,11 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from yt_dlp import YoutubeDL
 
-from pipeline_config import has_youtube_credentials, resolve_privacy_status
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from pipeline_config import has_youtube_credentials, resolve_privacy_status
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.readonly",
