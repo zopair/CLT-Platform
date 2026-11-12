@@ -2,7 +2,7 @@ name: Deploy CLT Platform project interface
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/project-portfolio-pages]
     paths:
       - "site/**"
       - ".github/workflows/pages.yml"
