@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="CLT Platform — a modular orchestration foundation for the Zubair engineering ecosystem.">
+<meta name="theme-color" content="#101827">
+<title>CLT Platform | Engineering Orchestration</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#111c2e;--line:#25364e;--text:#edf4ff;--muted:#a9bad0;--accent:#65d6c4;--blue:#83aaff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% 0,#1b3450 0,transparent 38%),var(--bg);color:var(--text);font:16px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--accent)}.wrap{width:min(1120px,92%);margin:auto}.top{padding:22px 0;border-bottom:1px solid var(--line)}.brand{font-weight:800;letter-spacing:.08em}.hero{padding:76px 0 48px}.eyebrow{color:var(--accent);font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.hero h1{font-size:clamp(2.4rem,6vw,4.8rem);line-height:1.05;max-width:850px;margin:14px 0}.lead{color:var(--muted);font-size:1.15rem;max-width:760px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.btn{display:inline-block;padding:11px 17px;border:1px solid var(--line);border-radius:9px;text-decoration:none;font-weight:700}.primary{background:var(--accent);color:#07151a;border-color:var(--accent)}section{padding:30px 0}.section-title{font-size:1.55rem;margin:0 0 18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:15px}.card{background:linear-gradient(150deg,#142239,#101a2b);border:1px solid var(--line);border-radius:14px;padding:20px}.card h3{margin:0 0 8px;font-size:1.05rem}.card p{margin:0;color:var(--muted)}.tag{display:inline-block;border:1px solid #36536a;border-radius:30px;padding:3px 9px;color:var(--accent);font-size:.75rem;margin-bottom:12px}.flow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.node{background:#15263b;border:1px solid #34506c;border-radius:10px;padding:12px 15px}.arrow{color:var(--accent)}.notice{border-left:3px solid var(--blue);padding:12px 16px;background:#101d30;color:var(--muted);border-radius:0 9px 9px 0}.foot{padding:28px 0 48px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}code{color:#b7e7df}@media(max-width:600px){.hero{padding:52px 0 32px}.flow{display:grid;grid-template-columns:1fr}.arrow{transform:rotate(90deg);justify-self:center}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap brand">CLT <span style="color:var(--accent)">/</span> PLATFORM</div></header>
+<main class="wrap">
+<section class="hero">
+<div class="eyebrow">Engineering orchestration foundation</div>
+<h1>One control plane.<br>Independent project systems.</h1>
+<p class="lead">CLT Platform is the orchestration foundation for the Zubair engineering ecosystem: a modular layer for repository awareness, task dispatch, health evaluation and service adapters.</p>
+<div class="actions"><a class="btn primary" href="https://github.com/zopair/CLT-Platform">Explore source repository</a><a class="btn" href="https://github.com/zopair/CLT-Platform/tree/main/autonomous-media-pipeline">Media pipeline source</a></div>
+</section>
+<section>
+<h2 class="section-title">Platform domains</h2>
+<div class="grid">
+<article class="card"><span class="tag">Core</span><h3>GitHub integration</h3><p>Repository-facing client layer intended to connect the platform with GitHub resources.</p></article>
+<article class="card"><span class="tag">Orchestration</span><h3>Task dispatch</h3><p>A dispatcher abstraction for assigning work to agents and keeping orchestration concerns separate.</p></article>
+<article class="card"><span class="tag">Observability</span><h3>Health evaluation</h3><p>A health-monitor interface for evaluating repository data and surfacing engineering signals.</p></article>
+<article class="card"><span class="tag">Adapters</span><h3>Service integration</h3><p>Dedicated adapters exist for Hunter AI and SINC-OS, keeping integrations modular.</p></article>
+</div>
+</section>
+<section>
+<h2 class="section-title">Conceptual execution flow</h2>
+<div class="flow" aria-label="Conceptual flow from GitHub client to orchestration, evaluation and adapters"><div class="node">GitHub client</div><span class="arrow">→</span><div class="node">Dispatcher</div><span class="arrow">→</span><div class="node">Health monitor</div><span class="arrow">→</span><div class="node">Service adapters</div></div>
+</section>
+<section>
+<h2 class="section-title">Delivery transparency</h2>
+<div class="notice"><strong>Current scope:</strong> this page documents the repository's implemented modules and architectural intent. It is a static project interface, not a live operations console. No live repository telemetry, agent execution, or production health is claimed here.</div>
+</section>
+</main>
+<footer class="foot"><div class="wrap">Zubair Engineering Ecosystem · CLT Platform · <a href="https://github.com/zopair">GitHub profile</a></div></footer>
+</body></html>
